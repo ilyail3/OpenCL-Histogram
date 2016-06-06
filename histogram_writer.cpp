@@ -17,22 +17,25 @@
 #define ROW_BYTES COLOR_BYTES*WIDTH
 #define IMAGE_BYTES WIDTH*HEIGHT*COLOR_BYTES
 
-typedef struct COLOR
-{
-    unsigned char R,G,B;
+#define WIDTH2 400
+#define HEIGHT2 400
+#define ROW_BYTES2 COLOR_BYTES*WIDTH2
+#define IMAGE_BYTES2 WIDTH2*HEIGHT2*COLOR_BYTES
+
+typedef struct COLOR {
+    unsigned char R, G, B;
 } COLOR;
 
-unsigned char* get_address(unsigned char* data, int x, int y){
+unsigned char *get_address(unsigned char *data, int x, int y) {
     return data + y * ROW_BYTES + x * COLOR_BYTES;
 }
 
-COLOR hsv2rgb(int hue, double sat, unsigned char value)
-{
-    double      hh, p, q, t, ff;
-    long        i;
+COLOR hsv2rgb(int hue, double sat, unsigned char value) {
+    double hh, p, q, t, ff;
+    long i;
     COLOR out;
 
-    if(sat <= 0.0) {       // < is bogus, just shuts up warnings
+    if (sat <= 0.0) {       // < is bogus, just shuts up warnings
         out.R = value;
         out.G = value;
         out.B = value;
@@ -41,10 +44,10 @@ COLOR hsv2rgb(int hue, double sat, unsigned char value)
 
     hh = hue;
 
-    if(hh >= 360.0) hh = 0.0;
+    if (hh >= 360.0) hh = 0.0;
     hh /= 60.0;
 
-    i = (long)hh;
+    i = (long) hh;
 
     ff = hh - i;
 
@@ -52,7 +55,7 @@ COLOR hsv2rgb(int hue, double sat, unsigned char value)
     q = value * (1.0 - (sat * ff));
     t = value * (1.0 - (sat * (1.0 - ff)));
 
-    switch(i) {
+    switch (i) {
         case 0:
             out.R = value;
             out.G = t;
@@ -88,15 +91,15 @@ COLOR hsv2rgb(int hue, double sat, unsigned char value)
     return out;
 }
 
-void write_histogram(const char* filename, int* histogram, int buckets){
+void write_histogram(const char *filename, int *histogram, int buckets) {
     const int bucket_pixel_size = WIDTH / buckets;
     const int bucket_size = 360 / buckets;
 
-    BITMAPFILEHEADER file_headers = {0x4D42, IMAGE_BYTES+14+40, 0, 54};
-    BITMAPINFOHEADER info_headers = {40, WIDTH, HEIGHT, 1, COLOR_BYTES*8, 0, IMAGE_BYTES, 2835, 2835, 0, 0};
+    BITMAPFILEHEADER file_headers = {0x4D42, IMAGE_BYTES + 14 + 40, 0, 54};
+    BITMAPINFOHEADER info_headers = {40, WIDTH, HEIGHT, 1, COLOR_BYTES * 8, 0, IMAGE_BYTES, 2835, 2835, 0, 0};
 
-    FILE* output = fopen(filename, "wb");
-    fwrite(&file_headers, sizeof(BITMAPFILEHEADER), 1,output);
+    FILE *output = fopen(filename, "wb");
+    fwrite(&file_headers, sizeof(BITMAPFILEHEADER), 1, output);
     fwrite(&info_headers, sizeof(BITMAPINFOHEADER), 1, output);
 
     unsigned char data[IMAGE_BYTES];
@@ -104,26 +107,26 @@ void write_histogram(const char* filename, int* histogram, int buckets){
 
     int max_value = 0;
 
-    for(int bucket = 0 ; bucket < buckets ; bucket++){
-        if(histogram[bucket] > max_value)
+    for (int bucket = 0; bucket < buckets; bucket++) {
+        if (histogram[bucket] > max_value)
             max_value = histogram[bucket];
     }
 
-    COLOR black{0,0,0};
+    COLOR black{0, 0, 0};
 
-    for(int bucket = 0 ; bucket < buckets ; bucket++){
-        int pixel_height = (int)round(((double)histogram[bucket] / (double)max_value) * (double)BASE_HEIGHT);
+    for (int bucket = 0; bucket < buckets; bucket++) {
+        int pixel_height = (int) round(((double) histogram[bucket] / (double) max_value) * (double) BASE_HEIGHT);
 
-        for(int x = bucket * bucket_pixel_size ; x < (bucket + 1) * bucket_pixel_size ; x++){
-            for(int y = INDEX_HEIGHT ; y < pixel_height + INDEX_HEIGHT ; y++){
+        for (int x = bucket * bucket_pixel_size; x < (bucket + 1) * bucket_pixel_size; x++) {
+            for (int y = INDEX_HEIGHT; y < pixel_height + INDEX_HEIGHT; y++) {
                 memcpy(get_address(data, x, y), &black, sizeof(COLOR));
             }
         }
 
         COLOR hue_color = hsv2rgb(bucket * bucket_size, 1.0, 255);
 
-        for(int x = bucket * bucket_pixel_size ; x < (bucket + 1) * bucket_pixel_size ; x++){
-            for(int y = 0 ; y < INDEX_HEIGHT ; y++){
+        for (int x = bucket * bucket_pixel_size; x < (bucket + 1) * bucket_pixel_size; x++) {
+            for (int y = 0; y < INDEX_HEIGHT; y++) {
                 memcpy(get_address(data, x, y), &hue_color, sizeof(COLOR));
             }
         }
@@ -131,6 +134,66 @@ void write_histogram(const char* filename, int* histogram, int buckets){
     }
 
     fwrite(&data, 1, IMAGE_BYTES, output);
+
+    fclose(output);
+}
+
+unsigned char *get_address2(unsigned char *data, int x, int y) {
+    return data + y * ROW_BYTES2 + x * COLOR_BYTES;
+}
+
+void write_histogram2(const char *filename, int *histogram, int buckets) {
+
+    BITMAPFILEHEADER file_headers = {0x4D42, IMAGE_BYTES2 + 14 + 40, 0, 54};
+    BITMAPINFOHEADER info_headers = {40, WIDTH2, HEIGHT2, 1, COLOR_BYTES * 8, 0, IMAGE_BYTES2, 2835, 2835, 0, 0};
+    double max_length_sqr = pow(fmin((double) WIDTH2, (double) HEIGHT2) / 2.0, 2.0);
+
+    FILE *output = fopen(filename, "wb");
+    fwrite(&file_headers, sizeof(BITMAPFILEHEADER), 1, output);
+    fwrite(&info_headers, sizeof(BITMAPINFOHEADER), 1, output);
+
+    unsigned char data[IMAGE_BYTES2];
+    memset(data, 255, IMAGE_BYTES2);
+
+    int max_value = 0;
+
+    for (int bucket = 0; bucket < buckets; bucket++) {
+        if (histogram[bucket] > max_value)
+            max_value = histogram[bucket];
+    }
+
+    COLOR *color;
+
+    for (int y = 0; y < HEIGHT2; y++) {
+        for (int x = 0; x < WIDTH2; x++) {
+            double distance_sqr =
+                    pow(fabs((double) y - (double) HEIGHT2 / 2.0), 2.0) +
+                    pow(fabs((double) x - (double) WIDTH2 / 2.0), 2.0);
+
+            //printf("distance x:%d y:%d distance:%0.2f max distance:%0.2f\n", x, y, distance_sqr, max_length_sqr);
+
+            if (max_length_sqr > distance_sqr) {
+
+                double deg = atan2(y - HEIGHT2/2, x - WIDTH2/2) * (180.0 / M_PI);
+                if (deg < 0) deg = deg + 360;
+
+                COLOR c = hsv2rgb(deg, 1.0, 255);
+
+                printf("x:%d, y:%d, deg:%0.2f\n", x, y, deg);
+
+                color = (COLOR *) get_address2(data, x, y);
+                color->R = c.R;
+                color->G = c.G;
+                color->B = c.B;
+                //printf("fill black\n");
+            }
+
+
+        }
+    }
+
+
+    fwrite(&data, 1, IMAGE_BYTES2, output);
 
     fclose(output);
 }

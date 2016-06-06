@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Write the resulting histogram into a file to make it visible
-    write_histogram(argv[2], total_result, HISTOGRAM_BUCKETS);
+    write_histogram2(argv[2], total_result, HISTOGRAM_BUCKETS);
 
     check_error("release kernel failed", clReleaseKernel(kernel));
     check_error("release program failed", clReleaseProgram(program));
