@@ -5,7 +5,7 @@
 #include <libgen.h>
 #include <cmath>
 
-#define HISTOGRAM_BUCKETS 90
+#define HISTOGRAM_BUCKETS 360
 #define MAX_SOURCE_SIZE (0x100000)
 
 #define GPU
@@ -135,7 +135,8 @@ int main(int argc, char *argv[]) {
     command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
     check_error("Failed to create command queue", ret);
 
-    size_t result_size = HISTOGRAM_BUCKETS * bitmap_info_header.height * 4;
+    // Define a buffer of buckets * (amount of rows) * (size in int)
+    size_t result_size = HISTOGRAM_BUCKETS * bitmap_info_header.height * sizeof(int);
 
     int result[HISTOGRAM_BUCKETS * bitmap_info_header.height];
 
@@ -175,12 +176,13 @@ int main(int argc, char *argv[]) {
             {sizeof(int),    (void *) &row_size},
             {sizeof(int),    (void *) &color_bytes},
             {sizeof(int),    (void *) &buckets},
-            {0, NULL}
+            {0, nullptr}
     };
 
+    // Assign arguments, and check errors when doing that
     cl_uint arg = 0;
     char error_msg[30];
-    for (arg = 0; args[arg].ptr != NULL; arg++) {
+    for (arg = 0; args[arg].ptr != nullptr; arg++) {
         sprintf(error_msg, "Set Kernel arg failed, ARG%d", arg);
 
         check_error(
@@ -192,12 +194,15 @@ int main(int argc, char *argv[]) {
     const size_t local_wg_size = 32;
     const size_t m = bitmap_info_header.height;
     size_t global_wg_size = (m / local_wg_size) * local_wg_size;
+
     // If the number of rows isn't dividable by local_wg_size, add another one
     // the opencl code will do bonds check
     if(m % local_wg_size != 0)
         global_wg_size += local_wg_size;
 
+    // Global work group size
     size_t global[1] = {global_wg_size};
+    // Local work group size
     size_t local[1] = {local_wg_size};
     printf("wg size, global:%ld, local:%ld\n", global[0], local[0]);
 
@@ -215,8 +220,10 @@ int main(int argc, char *argv[]) {
     );
     check_error("Enqueue task failed", ret);
 
+    // Total result is the sum histogram of all the rows
     int total_result[HISTOGRAM_BUCKETS];
 
+    // nullify it, otherwise, I'll get random crap instead of the real sum
     for (int i = 0; i < HISTOGRAM_BUCKETS; i++) {
         total_result[i] = 0;
     }
@@ -227,20 +234,23 @@ int main(int argc, char *argv[]) {
             clEnqueueReadBuffer(command_queue, result_mem, CL_TRUE, 0, result_size, result, 0, NULL, NULL)
     );
 
+    // Putting y in the outside loop isn't intuitive(at least for me)
+    // but serial access to memory can be optimized, while the reverse isn't
     for (int y = 0; y < bitmap_info_header.height; y++) {
         for (int bucket = 0; bucket < HISTOGRAM_BUCKETS; bucket++) {
             total_result[bucket] += result[y * HISTOGRAM_BUCKETS + bucket];
         }
     }
 
+    // Write the resulting histogram into a file to make it visible
     write_histogram(argv[2], total_result, HISTOGRAM_BUCKETS);
 
     check_error("release kernel failed", clReleaseKernel(kernel));
     check_error("release program failed", clReleaseProgram(program));
     check_error("release memory failed", clReleaseMemObject(result_mem));
     check_error("release memory failed", clReleaseMemObject(data_bytes));
-    check_error("release command queue", clReleaseCommandQueue(command_queue));
-    check_error("release context", clReleaseContext(context));
+    check_error("release command queue failed", clReleaseCommandQueue(command_queue));
+    check_error("release context failed", clReleaseContext(context));
 
 }
 #endif
