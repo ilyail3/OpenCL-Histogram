@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <libgen.h>
+#include <cmath>
 
 #define HISTOGRAM_BUCKETS 90
 #define MAX_SOURCE_SIZE (0x100000)
@@ -188,8 +189,17 @@ int main(int argc, char *argv[]) {
         );
     }
 
-    size_t global[1] = {bitmap_info_header.height};
-    size_t local[1] = {bitmap_info_header.height};
+    const size_t local_wg_size = 32;
+    const size_t m = bitmap_info_header.height;
+    size_t global_wg_size = (m / local_wg_size) * local_wg_size;
+    // If the number of rows isn't dividable by local_wg_size, add another one
+    // the opencl code will do bonds check
+    if(m % local_wg_size != 0)
+        global_wg_size += local_wg_size;
+
+    size_t global[1] = {global_wg_size};
+    size_t local[1] = {local_wg_size};
+    printf("wg size, global:%ld, local:%ld\n", global[0], local[0]);
 
     /* Execute OpenCL Kernel */
     ret = clEnqueueNDRangeKernel(
