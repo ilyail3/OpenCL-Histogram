@@ -1,0 +1,16 @@
+Building instruction
+
+If trying to build fails because opencl.h files couldn't be located, change the line
+include_directories(/usr/local/cuda-7.5/targets/x86_64-linux/include)
+
+in analyze.cl for the directory for CL/cl.h, on linux you can easily find it with locate
+locate CL/cl.h
+
+Run instruction
+
+open_cl_histogram {input_bmp_file} {histogram_result}
+
+If you run it on a Optimus device, and have Bumblebee installed, you should
+run it with optirun(if you don't know what those are, don't worry about it)
+
+optirun ./open_cl_histogram {input_bmp_file} {histogram_result}
