@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <libgen.h>
 #include <cmath>
+#include <cstring>
 
 #define HISTOGRAM_BUCKETS 360
 #define MAX_SOURCE_SIZE (0x100000)
@@ -243,7 +244,14 @@ int main(int argc, char *argv[]) {
     }
 
     // Write the resulting histogram into a file to make it visible
-    write_histogram2(argv[2], total_result, HISTOGRAM_BUCKETS);
+    write_histogram(argv[2], total_result, HISTOGRAM_BUCKETS);
+
+    char file[250];
+    strcpy(file, argv[2]);
+    char* prefix = strstr(file, ".bmp");
+    strcpy (prefix,"_round.bmp");
+
+    write_histogram2(file, total_result, HISTOGRAM_BUCKETS);
 
     check_error("release kernel failed", clReleaseKernel(kernel));
     check_error("release program failed", clReleaseProgram(program));

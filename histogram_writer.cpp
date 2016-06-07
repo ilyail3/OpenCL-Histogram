@@ -146,7 +146,13 @@ void write_histogram2(const char *filename, int *histogram, int buckets) {
 
     BITMAPFILEHEADER file_headers = {0x4D42, IMAGE_BYTES2 + 14 + 40, 0, 54};
     BITMAPINFOHEADER info_headers = {40, WIDTH2, HEIGHT2, 1, COLOR_BYTES * 8, 0, IMAGE_BYTES2, 2835, 2835, 0, 0};
+
+    const int bucket_size = 360 / buckets;
+
+    double max_dist = fmin((double) WIDTH2 - 10, (double) HEIGHT2 - 10);
+
     double max_length_sqr = pow(fmin((double) WIDTH2, (double) HEIGHT2) / 2.0, 2.0);
+    double min_length_sqr = pow(max_dist / 2.0, 2.0);
 
     FILE *output = fopen(filename, "wb");
     fwrite(&file_headers, sizeof(BITMAPFILEHEADER), 1, output);
@@ -172,20 +178,45 @@ void write_histogram2(const char *filename, int *histogram, int buckets) {
 
             //printf("distance x:%d y:%d distance:%0.2f max distance:%0.2f\n", x, y, distance_sqr, max_length_sqr);
 
-            if (max_length_sqr > distance_sqr) {
+            double deg = atan2(y - HEIGHT2/2, x - WIDTH2/2) * (180.0 / M_PI);
+            if (deg < 0) deg = deg + 360;
 
-                double deg = atan2(y - HEIGHT2/2, x - WIDTH2/2) * (180.0 / M_PI);
-                if (deg < 0) deg = deg + 360;
+            if (max_length_sqr > distance_sqr && min_length_sqr < distance_sqr) {
 
                 COLOR c = hsv2rgb(deg, 1.0, 255);
 
-                printf("x:%d, y:%d, deg:%0.2f\n", x, y, deg);
+                //printf("x:%d, y:%d, deg:%0.2f\n", x, y, deg);
 
                 color = (COLOR *) get_address2(data, x, y);
                 color->R = c.R;
                 color->G = c.G;
                 color->B = c.B;
                 //printf("fill black\n");
+            } else if(min_length_sqr >= distance_sqr){
+                int bucket_a = (deg / bucket_size) * bucket_size;
+                double dist_a = (deg - (double)bucket_a) / (double)bucket_size;
+
+                int bucket_b = ((deg / bucket_size) + 1) * bucket_size;
+                double dist_b = ((double)bucket_b - deg) / (double)bucket_size;
+
+                if(bucket_b == buckets) bucket_b = 0;
+
+                //printf("bucket a:%d, b:%d, dist a:%0.2f, b:%0.2f\n", bucket_a, bucket_b, dist_a, dist_b);
+                double dist = 1 - (sqrt(pow(y - HEIGHT2/2, 2.0) + pow(x - WIDTH2/2, 2.0)) / (max_dist / 2));
+
+                double rel_value_a = (double)histogram[bucket_a] / (double)max_value;
+                double rel_value_b = (double)histogram[bucket_b] / (double)max_value;
+
+                if((rel_value_a > dist && dist_a > 0.5) || (rel_value_b > dist && dist_b > 0.5)) {
+                    COLOR c = hsv2rgb(deg, 1.0, 255);
+
+                    //printf("x:%d, y:%d, deg:%0.2f\n", x, y, deg);
+
+                    color = (COLOR *) get_address2(data, x, y);
+                    color->R = c.R;
+                    color->G = c.G;
+                    color->B = c.B;
+                }
             }
 
 
